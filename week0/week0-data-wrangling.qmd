@@ -1,0 +1,24 @@
+``` {r}
+packages <- c("here", "janitor", "tidyverse", "sf", "terra", "tmap", "spData", "spDataLarge", "geodata", "kableExtra", "viridisLite")
+installed_packages <- packages %in% rownames(installed.packages())
+
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+library(here)
+library(janitor)
+library(tidyverse)
+library(sf)
+library(kableExtra)
+
+gdw_df <- read_csv(here("week0/data","gdw.csv")) |>
+  clean_names()
+
+head(gdw_df) |> 
+    kable()
+
+tail(gdw_df, n = 10) |> 
+  kable()
+
+```
