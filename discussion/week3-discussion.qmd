@@ -1,0 +1,123 @@
+
+```{r}
+library(here)
+library(tidyverse)
+library(sf)
+library(tmap)
+```
+
+```{r}
+sb_protected_areas <- st_read(here("discussion", "data", "week3data", "cpad_super_units_sb.shp")) |>  
+  st_transform("ESRI:102009")
+
+sb_city_boundaries <- st_read(here("discussion", "data", "week3data", "sb_city_boundaries_2003.shp")) |> 
+  st_transform("ESRI:102009")
+
+sb_county_boundary <- st_read(here("discussion", "data", "week3data", "sb_county_boundary_2020.shp")) |> 
+  st_transform("ESRI:102009")
+
+aves <- st_read(here("discussion", "data", "week3data", "aves_observations_2020_2024.shp")) |> 
+  st_transform("ESRI:102009")
+```
+
+## Find bird observations within PAs in Santa Barbara County
+Find how many bird observations are within protected areas in Santa Barbara County and show how your output differs with a spatial subset versus a spatial join
+
+```{r}
+aves_PA_subset <- sb_protected_areas[aves, ] # Subset the protected areas with birds
+nrow(aves_PA_subset) # 35 rows
+```
+
+```{r}
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+  tm_shape(sb_protected_areas) +
+    tm_borders(lwd = 1, col = "#fb8500") +
+    tm_fill(col = "#fb8500", alpha = 0.2) +
+  tm_shape(aves_PA_subset) +
+    tm_dots(col = "#023047")
+```
+
+Join all bird observations and protected areas
+```{r}
+aves_PA_join <- st_join(aves, sb_protected_areas)
+
+nrow(aves_PA_join) # 500 rows
+```
+
+Inner join
+```{r}
+aves_PA_inner <- st_join(aves, sb_protected_areas, left = FALSE)
+
+nrow(aves_PA_inner)
+```
+
+Make a 5 km buffer around the protected areas and subset buffered geometries to only those with bird observations
+
+```{r}
+# Set 5 km buffer around protected areas
+PA_buffer_5km <- st_buffer(sb_protected_areas, dist = units::set_units(5, "km"))
+
+# Subset buffered areas to only those with bird observation
+aves_PA_buffer_subset <- PA_buffer_5km[aves,]
+
+# Check rows
+nrow(aves_PA_buffer_subset)
+```
+
+```{r}
+tm_shape(sb_county_boundary) +
+  tm_fill() +
+  tm_shape(sb_protected_areas) +
+    tm_borders(lwd = 1, col = "#fb8500") +
+    tm_fill(col = "#fb8500", alpha = 0.2) +
+  tm_shape(aves_PA_buffer_subset) +
+    tm_dots(col = "#023047")
+```
+
+## Find PAs within 15 km of Goleta
+```{r}
+# Subset SB county to Goleta
+goleta <- sb_city_boundaries |> 
+    dplyr::filter(NAME == "Goleta")
+
+# Check if units are in meters
+st_crs(goleta)$units 
+
+# Create 15 km buffer around Goleta
+goleta_buffer_15km <- st_buffer(goleta, dist = 15000) 
+```
+
+
+```{r}
+goleta_PA_within <- st_within(sb_protected_areas, goleta_buffer_15km)
+
+goleta_PA_intersect <- st_intersects(sb_protected_areas, goleta_buffer_15km)
+
+goleta_PA_intersection <- st_intersection(sb_protected_areas, goleta_buffer_15km)
+
+sum(lengths(goleta_PA_within) > 0)
+sum(lengths(goleta_PA_intersect) > 0)
+nrow(goleta_PA_intersection)
+```
+
+## Find distance between Goleta and Dangermond Preserve
+
+```{r}
+dangermond <- sb_protected_areas |> 
+    filter(UNIT_NAME == "Jack and Laura Dangermond Preserve")
+
+danger_dist <- st_distance(goleta, dangermond)
+danger_dist
+```
+
+```{r}
+danger_centroid <- st_centroid(dangermond)
+goleta_centroid <- st_centroid(goleta)
+
+danger_dist_centroid <- st_distance(danger_centroid, goleta_centroid)
+```
+
+```{r}
+danger_dist == danger_dist_centroid # FALSE 
+```
