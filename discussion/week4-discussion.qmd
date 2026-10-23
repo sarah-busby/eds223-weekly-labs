@@ -1,0 +1,177 @@
+# Week 4 Discussion - `terra` and `stars` packages
+
+
+```{r}
+library(tidyverse)
+library(spDataLarge)
+library(sf)
+library(stars)
+library(terra)
+library(tmap)
+```
+
+## Part 1: Terra package
+Benefits of terra
+- **data model**: ...
+
+
+### 1.1 Read in Data
+```{r}
+# Read data by terra
+dem <- terra::rast(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat <- terra::rast(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm <- terra::rast(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+### 1.2 Explore elevation at Mt. Mongón, Perú
+1. Make a boxplot and histogram of elevation at Mt. Mongón, Perú
+2. Reclassify dem and compute the mean for the three classes:
+    - Low, where elevation is less than 300 
+    - Medium
+    - High, where elevation is greater than 500
+
+1.2.1 Make a boxplot and histogram
+```{r}
+# Use terra:: so R uses terra's version
+# Terra histagram
+terra::hist(dem,
+    main = "Digital Elevation Model Distribution",
+    xlab = "Value"
+)
+
+# Terra boxplot
+terra::boxplot(dem,
+    main = "Digital Elevation Model Distribution",
+    ylab = "Value"
+)
+```
+
+1.2 Reclassify and group
+```{r}
+# terra method
+# Each row is one rule: from, to, new value
+rcl <- matrix(c(-Inf, 300, 0,  # Low
+                 300, 500, 1,  # Medium
+                 500, Inf, 2), # High
+             ncol = 3, byrow = TRUE
+             )
+
+# Apply the matrix to reclassify the raster, making all cells 0 or 1 or 2
+dem_rcl <- terra::classify(dem, rcl = rcl)
+
+# Assign labels to the numerical categories
+# A plain data.frame works with both older and newer terra
+levels(dem_rcl) <- data.frame(id = 0:2,
+                              cats = c("low", "medium", "high"))
+
+# Calculate mean elevation for each category using original DEM values
+elevation_mean <- terra::zonal(dem, dem_rcl, fun = "mean")
+elevation_mean
+```
+
+```{r}
+plot(dem_rcl)
+```
+
+### 3. Compare NDVI and NDWI for Zion National Park
+```{r}
+scale_factor <- 0.0000275
+offset <- 0.2
+
+scale_function <- function(x) {
+  x * scale_factor + offset
+}
+
+landsat_scaled <- terra::app(landsat, fun = scale_function)
+```
+
+```{r}
+ndwi_fun <- function(green, nir){
+    (green - nir)/(green + nir)
+}
+
+ndvi_fun <- function(nir, red){
+  (nir - red)/(nir + red)
+}
+```
+
+```{r}
+ndwi_rast <- terra::lapp(landsat_scaled[[c(2, 4)]],
+                         fun = ndwi_fun)
+
+ndvi_rast <- terra::lapp(landsat_scaled[[c(4, 3)]],
+                         fun = ndvi_fun)
+```
+
+```{r}
+plot(ndwi_rast,
+     main = "Zion National Park NDWI")
+```
+
+
+```{r}
+combine <- c(ndvi_rast, ndwi_rast) # Stack rasters
+
+plot(combine, main = c("NDVI", "NDWI")) # Plot
+```
+
+## Part 2: Stars package
+
+1.1 Read in data
+```{r}
+# Read data using stars package
+dem_s <- stars::read_stars(system.file("raster/dem.tif", package = "spDataLarge"))
+landsat_s <- stars::read_stars(system.file("raster/landsat.tif", package = "spDataLarge"))
+srtm_s <- stars::read_stars(system.file("raster/srtm.tif", package = "spDataLarge"))
+```
+
+1.2 Explore Mt. 
+```{r}
+# Stars histagram
+dem_values <- as.vector(dem_s[[1]])
+
+hist(dem_values,
+    main = "Digital Elevation Model Distribution",
+    xlab = "Value"
+)
+
+boxplot(dem_values, 
+    main = "Digital Elevation Model Distribution",
+    ylab = "Value"
+)
+```
+
+```{r}
+# Stars method
+dem_rcl <- cut(dem_s,
+               breaks = c(-Inf, 300, 500, Inf),
+               labels = c("low", "medium", "high")
+              )
+
+elevation_mean <- tibble(
+    elevation = as.vector(dem[[1]]),
+    cats = factor(as.vector(dem_rcl[[1]]),
+    levels = levels(dem_rcl[[1]]))) |> 
+    group_by(cats) |> 
+    summarize(mean_elevation = 
+        mean(elevation, na.rm = TRUE))
+
+elevation_mean
+```
+
+```{r}
+tm_shape(dem_rcl) +
+    tm_raster()
+```
+
+```{r}
+# Polygonize the reclassified raster, merging cells of the same class
+dem_polys <- sf::st_as_sf(dem_rcl, merge = TRUE) |> 
+  group_by(dem.tif) |> 
+  summarise() # Dissolve into one (multi)polygon per class
+
+# Compute the mean of DEM values falling inside each polygon
+aggregate(dem, by = dem_polys, FUN = mean) |> 
+  sf::st_as_sf() |> 
+  mutate(cats = dem_polys$dem.tif)
+```
+
