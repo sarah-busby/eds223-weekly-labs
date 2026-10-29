@@ -271,8 +271,8 @@ There are several ways to convert raster data into vector. The most common, and 
 We could simply convert all grid cells into polygons like so:
 
 ```{r}
-elevation_raster_poly <- as.polygons(elevation_final) %>%
-  st_as_sf() %>%
+elevation_raster_poly <- as.polygons(elevation_final) |> 
+  st_as_sf() |> 
   rename(elevation = 1)
 
 head(elevation_raster_poly)
