@@ -126,7 +126,7 @@ tm_shape(boundary) +
 ```
 
 
-## 2. Checking raster resolution with `cellsize()`
+## 2. Checking raster resolution with `cellSize()`
 
 Before performing any spatial operations on our raster, it's useful to understand its spatial resolution. Two functions help us do this:
 
