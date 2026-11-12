@@ -11,7 +11,7 @@ format:
 editor_options:
   chunk_output_type: console
 ---
-```{r}
+/```{r}
 #| eval: true
 #| echo: false
 #| out-width: "75%"
@@ -27,6 +27,9 @@ In this lab we'll work with our first remotely sensed dataset! We'll read the me
 
 ## 1. Set up
 
+```{r}
+
+```
 ```{r}
 #| message: false
 #| warning: false
@@ -277,6 +280,26 @@ tm_shape(landsat_scaled) +
   tm_scalebar(position = c("left", "bottom"))
 ```
 
+Let's stretch our true colors to be lighter
+
+```{r}
+plotRGB(landsat_scaled, r = 3, g = 2, b = 1, stretch = "lin")
+```
+
+Gamma correction: to 0.4-0.5
+```{r}
+landsat_gamma <- landsat_scaled[[c("red", "green", "blue")]]^0.4
+```
+
+```{r}
+names(landsat_gamma) <- c("red", "green", "blue")
+
+tm_shape(landsat_gamma) +
+  tm_rgb(col = tm_vars(c("red", "green", "blue"), multivariate = TRUE),
+         col.scale = tm_scale_rgb(max_color_value = 1)) +
+  tm_title("True color (gamma = 0.4)") +
+  tm_scalebar(position = c("left", "bottom"))
+```
 ## 6. False color imagery
 
 A **false color composite** assigns satellite bands beyond the visible spectrum (or in a non-standard order) to the display channels, letting us highlight features that are difficult to distinguish in true color.
@@ -293,7 +316,7 @@ Placing the **near infrared band** in the red channel makes healthy vegetation a
 
 ```{r}
 tm_shape(landsat_scaled) +
-  tm_rgb(col = tm_vars(c("NIR", "red", "green"), multivariate = TRUE),
+  tm_rgb(col = tm_vars(c("NIR", "red", "green"), multivariate = TRUE), # Multivariate stacks layers on top of each other
          col.scale = tm_scale_rgb(max_color_value = 1)) +
   tm_title("False color: NIR–Red–Green") +
   tm_scalebar(position = c("left", "bottom"))
